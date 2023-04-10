@@ -1,65 +1,38 @@
 import 'package:flip_card/flip_card_controller.dart';
-import 'package:flutter_flashcard/flashcard.dart';
-import 'package:flutter_flashcard/flashcard_view.dart';
+
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import 'state/ans_state.dart';
+import 'state/flashcard_state.dart';
+import 'widget/flashcard_view.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(const FlashCardScreen());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class FlashCardScreen extends StatefulWidget {
+  const FlashCardScreen({super.key});
+  static String flashcardScreenRoute = '/flashcard';
 
   @override
-  _MyAppState createState() => _MyAppState();
+  State<FlashCardScreen> createState() => _FlashCardScreenState();
 }
 
-class _MyAppState extends State<MyApp> {
-  List<Flashcard> _flashcards = [
-    Flashcard(question: "What language does flutter uses?", answer: "Dart"),
-    Flashcard(question: "What language does React uses?", answer: "JavaScript"),
-    Flashcard(
-        question: "What language does Angular uses?", answer: "JavaScript"),
-    Flashcard(
-        question: "What language does Electron uses?", answer: "JavaScript"),
-    Flashcard(
-        question: "What language does React Native uses?", answer: "JavaScript")
-  ];
-
-  int _currIndex = 0;
-  int _statusIndex = 0;
-
-  List<Icon> statusIco = [
-    const Icon(
-      Icons.edit,
-      color: Colors.grey,
-      size: 30.0,
-    ),
-    const Icon(
-      Icons.done,
-      color: Colors.green,
-      size: 30.0,
-    ),
-    const Icon(
-      Icons.error_outline,
-      color: Colors.amber,
-      size: 30.0,
-    )
-  ];
+class _FlashCardScreenState extends State<FlashCardScreen> {
+  final _flashCardState = FlashCardState();
+  final _ansState = AnsState();
 
   var ansController = TextEditingController();
   var flipController = FlipCardController();
-
-  // 0: init, 1: correct, 2: wrong
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
         home: Scaffold(
-            appBar: AppBar(title: Text('FlashCard Quiz')),
+            appBar: AppBar(title: const Text('FlashCard Quiz')),
             body: Center(
               child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -69,10 +42,10 @@ class _MyAppState extends State<MyApp> {
                       height: 250,
                       child: FlipCard(
                         front: FlashcardView(
-                          text: _flashcards[_currIndex].question,
+                          text: _flashCardState.curFlashCard.question,
                         ),
                         back: FlashcardView(
-                          text: _flashcards[_currIndex].answer,
+                          text: _flashCardState.curFlashCard.answer,
                         ),
                         controller: flipController,
                       ),
@@ -82,19 +55,20 @@ class _MyAppState extends State<MyApp> {
                         children: [
                           OutlinedButton.icon(
                               onPressed: previousCard,
-                              icon: Icon(Icons.chevron_left),
-                              label: Text('Prev')),
+                              icon: const Icon(Icons.chevron_left),
+                              label: const Text('Prev')),
                           FloatingActionButton(
                               backgroundColor: Colors.blue,
-                              child: Icon(Icons.volume_up, color: Colors.white),
+                              child: const Icon(Icons.volume_up,
+                                  color: Colors.white),
                               onPressed: () async {
                                 await runTextToSpeech(
-                                    _flashcards[_currIndex].answer);
+                                    _flashCardState.curFlashCard.answer);
                               }),
                           OutlinedButton.icon(
                               onPressed: nextCard,
-                              icon: Icon(Icons.chevron_right),
-                              label: Text('Next')),
+                              icon: const Icon(Icons.chevron_right),
+                              label: const Text('Next')),
                         ]),
                     Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -110,7 +84,7 @@ class _MyAppState extends State<MyApp> {
                               controller: ansController,
                             ),
                           ),
-                          statusIco[_statusIndex]
+                          _ansState.statusIco[_ansState.statusIndex]
                         ])
                   ]),
             )));
@@ -118,34 +92,34 @@ class _MyAppState extends State<MyApp> {
 
   void nextCard() {
     setState(() {
-      _statusIndex = 0;
-      ansController.clear();
-      if (!flipController.state!.isFront) {
-        flipController.toggleCard();
-      }
-      _currIndex = (_currIndex + 1 < _flashcards.length) ? _currIndex + 1 : 0;
+      _resetStatus();
+      _flashCardState.nextCard();
     });
   }
 
   void previousCard() {
     setState(() {
-      _statusIndex = 0;
-      ansController.clear();
-      if (!flipController.state!.isFront) {
-        flipController.toggleCard();
-      }
-      _currIndex =
-          (_currIndex - 1 >= 0) ? _currIndex - 1 : _flashcards.length - 1;
+      _resetStatus();
+      _flashCardState.prevCard();
     });
   }
 
   void checkAns(String inputText) {
     setState(() {
-      _statusIndex = inputText.toLowerCase() ==
-              _flashcards[_currIndex].answer.toLowerCase()
-          ? 1
-          : 2;
+      _ansState.checkAns(inputText, _flashCardState.curFlashCard.answer);
     });
+  }
+
+  _resetStatus() {
+    ansController.clear();
+    _ansState.statusIndex = 0;
+    _setCardFront();
+  }
+
+  _setCardFront() {
+    if (!flipController.state!.isFront) {
+      flipController.toggleCard();
+    }
   }
 
   Future<void> runTextToSpeech(String currentTtsString) async {
